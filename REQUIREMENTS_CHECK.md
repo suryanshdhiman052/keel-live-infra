@@ -7,7 +7,7 @@
 | 3 | RDS private | `publicly_accessible = false`, db subnets, SG 5432 from ECS only |
 | 4 | Remote state S3 + DynamoDB lock | `bootstrap/` + root `backend "s3" {}` + `LockID` |
 | 5 | ≤$150 trade-off + real consequence | **No NAT** + single-AZ `db.t4g.micro` + on-demand only; RTO **90 min** / snapshot RPO ≤24h |
-| 6 | GitHub link | New public repo (not orders/harbor/task) |
+| 6 | GitHub link | https://github.com/suryanshdhiman052/keel-live-infra |
 | 7 | Runbook | `RUNBOOK.md` |
 
 ## Deliberate differences vs prior attempts

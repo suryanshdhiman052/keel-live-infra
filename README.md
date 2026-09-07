@@ -1,6 +1,6 @@
 # Keel live — budget-capped AWS shop API
 
-Public repository: _(push this directory, then paste the URL here)_
+Public repository: https://github.com/suryanshdhiman052/keel-live-infra
 
 Three Terraform modules:
 
