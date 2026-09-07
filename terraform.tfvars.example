@@ -1,5 +1,5 @@
-domain_name    = "api.example.com"
-hosted_zone_id = "Z00000000000000000000"
-alert_email    = "ops@example.com"
-container_image = ""
-desired_count   = 0
+fqdn         = "shop.example.com"
+dns_zone     = "Z00000000000000000000"
+pager_email  = "oncall@example.com"
+image_uri    = ""
+replica_min  = 0

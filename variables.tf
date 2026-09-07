@@ -8,64 +8,64 @@ variable "project" {
   default = "keel"
 }
 
-variable "environment" {
+variable "stage" {
   type    = string
-  default = "live"
+  default = "shop"
 }
 
 variable "vpc_cidr" {
   type    = string
-  default = "10.81.0.0/16"
+  default = "172.20.16.0/20"
 }
 
-variable "domain_name" {
+variable "fqdn" {
   type = string
 }
 
-variable "hosted_zone_id" {
+variable "dns_zone" {
   type = string
 }
 
-variable "alert_email" {
+variable "pager_email" {
   type = string
 }
 
-variable "container_image" {
+variable "image_uri" {
   type    = string
   default = ""
 }
 
-variable "container_port" {
+variable "listen_port" {
   type    = number
-  default = 8080
+  default = 8088
 }
 
-variable "container_user" {
+variable "run_as" {
   type    = string
   default = "1000:1000"
 
   validation {
-    condition     = var.container_user == "1000:1000"
-    error_message = "Runtime user is hardcoded to UID 1000. Do not pass root, 0, or an image USER name."
+    condition     = var.run_as == "1000:1000"
+    error_message = "Fargate User must be numeric 1000:1000."
   }
 }
 
-variable "desired_count" {
+variable "replica_min" {
   type    = number
   default = 0
 
   validation {
-    condition     = var.desired_count >= 0 && var.desired_count <= 3
-    error_message = "desired_count must be 0-3. 0 is required until the ECR tag exists."
+    condition     = var.replica_min >= 0 && var.replica_min <= 3
+    error_message = "replica_min stays 0 until the first immutable tag is pushed."
   }
 }
 
-variable "db_name" {
+variable "shop_db" {
   type    = string
-  default = "keelshop"
+  default = "shopdb"
 }
 
-variable "db_username" {
+variable "shop_user" {
   type    = string
-  default = "keelapp"
+  default = "shopuser"
 }

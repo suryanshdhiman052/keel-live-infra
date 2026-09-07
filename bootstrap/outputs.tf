@@ -1,17 +1,17 @@
 output "bucket" {
-  value = aws_s3_bucket.state.id
+  value = aws_s3_bucket.remote.id
 }
 
-output "lock_table" {
-  value = aws_dynamodb_table.lock.name
+output "mutex" {
+  value = aws_dynamodb_table.mutex.name
 }
 
 output "backend_hcl" {
   value = <<-EOT
-    bucket         = "${aws_s3_bucket.state.id}"
-    key            = "keel/live/terraform.tfstate"
+    bucket         = "${aws_s3_bucket.remote.id}"
+    key            = "keel/shop/terraform.tfstate"
     region         = "${var.aws_region}"
-    dynamodb_table = "${aws_dynamodb_table.lock.name}"
+    dynamodb_table = "${aws_dynamodb_table.mutex.name}"
     encrypt        = true
   EOT
 }

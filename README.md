@@ -1,13 +1,9 @@
-# Keel live — budget-capped AWS shop API
+# Keel shop API (AWS)
 
-Public repository: https://github.com/suryanshdhiman052/keel-live-infra
+https://github.com/suryanshdhiman052/keel-live-infra
 
-Three Terraform modules:
+Two-AZ shop behind HTTPS. Workloads have no NAT. Postgres hostname is an SSM parameter.
 
-| Module | Owns |
-|---|---|
-| `networking` | VPC `10.81.0.0/16`, public/app/db subnets, **no NAT**, VPC endpoints, SG peer rules |
-| `compute` | ECR, S3 `objects/*`, ACM+HTTPS ALB, SSM DB endpoint, ECS Fargate, IAM, CPU autoscaling |
-| `database` | Private single-AZ Postgres (`db.t4g.micro`) |
+Modules: `networking`, `compute`, `database`.
 
-Follow **[RUNBOOK.md](./RUNBOOK.md)**. Do not start from this README alone.
+Operators start in [OPS.md](./OPS.md).

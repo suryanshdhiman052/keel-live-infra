@@ -1,21 +1,21 @@
-data "aws_caller_identity" "current" {}
+data "aws_caller_identity" "acct" {}
 
-resource "aws_sns_topic" "ops" {
-  name = "${local.name}-ops"
+resource "aws_sns_topic" "pager" {
+  name = "${local.label}-pager"
 }
 
-resource "aws_sns_topic_subscription" "ops_email" {
-  topic_arn = aws_sns_topic.ops.arn
+resource "aws_sns_topic_subscription" "inbox" {
+  topic_arn = aws_sns_topic.pager.arn
   protocol  = "email"
-  endpoint  = var.alert_email
+  endpoint  = var.pager_email
 }
 
-resource "aws_sns_topic_policy" "ops" {
-  arn = aws_sns_topic.ops.arn
+resource "aws_sns_topic_policy" "pager" {
+  arn = aws_sns_topic.pager.arn
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid    = "AllowAwsPublish"
+      Sid    = "ServicesMayPublish"
       Effect = "Allow"
       Principal = {
         Service = [
@@ -25,18 +25,18 @@ resource "aws_sns_topic_policy" "ops" {
         ]
       }
       Action   = "sns:Publish"
-      Resource = aws_sns_topic.ops.arn
+      Resource = aws_sns_topic.pager.arn
       Condition = {
-        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.acct.account_id }
       }
     }]
   })
 }
 
-# No NAT: a dead endpoint/ECR/secret path stops NEW placements.
-# Live tasks still pass /readyz, so ALB HealthyHostCount stays green.
-resource "aws_cloudwatch_event_rule" "ecs_init_fail" {
-  name = "${local.name}-ecs-init-fail"
+# Placement dies without NAT/endpoints. Running tasks still answer /status,
+# so a host-count alarm alone would stay quiet.
+resource "aws_cloudwatch_event_rule" "task_never_started" {
+  name = "${local.label}-task-never-started"
   event_pattern = jsonencode({
     source      = ["aws.ecs"]
     detail-type = ["ECS Task State Change"]
@@ -51,25 +51,25 @@ resource "aws_cloudwatch_event_rule" "ecs_init_fail" {
   })
 }
 
-resource "aws_cloudwatch_event_target" "ecs_init_fail" {
-  rule       = aws_cloudwatch_event_rule.ecs_init_fail.name
-  arn        = aws_sns_topic.ops.arn
-  depends_on = [aws_sns_topic_policy.ops]
+resource "aws_cloudwatch_event_target" "task_never_started" {
+  rule       = aws_cloudwatch_event_rule.task_never_started.name
+  arn        = aws_sns_topic.pager.arn
+  depends_on = [aws_sns_topic_policy.pager]
 }
 
-resource "aws_cloudwatch_metric_alarm" "alb_no_ready" {
-  alarm_name          = "${local.name}-alb-no-ready"
-  alarm_description   = "Zero healthy targets. Typical: RDS down so /readyz returns 503."
+resource "aws_cloudwatch_metric_alarm" "no_ready_targets" {
+  alarm_name          = "${local.label}-no-ready-targets"
+  alarm_description   = "Target group empty. Usually /status cannot open Postgres."
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 3
   datapoints_to_alarm = 3
   threshold           = 1
   treat_missing_data  = "breaching"
-  alarm_actions       = [aws_sns_topic.ops.arn]
-  ok_actions          = [aws_sns_topic.ops.arn]
+  alarm_actions       = [aws_sns_topic.pager.arn]
+  ok_actions          = [aws_sns_topic.pager.arn]
 
   metric_query {
-    id          = "healthy"
+    id          = "ready"
     return_data = true
     metric {
       namespace   = "AWS/ApplicationELB"
@@ -77,19 +77,19 @@ resource "aws_cloudwatch_metric_alarm" "alb_no_ready" {
       period      = 60
       stat        = "Minimum"
       dimensions = {
-        LoadBalancer = module.compute.alb_full_name
-        TargetGroup  = module.compute.target_group_full_name
+        LoadBalancer = module.compute.lb_suffix
+        TargetGroup  = module.compute.tg_suffix
       }
     }
   }
 }
 
-resource "aws_db_event_subscription" "rds_failure" {
-  name             = "${local.name}-rds-failure"
-  sns_topic        = aws_sns_topic.ops.arn
+resource "aws_db_event_subscription" "pg_failure" {
+  name             = "${local.label}-pg-failure"
+  sns_topic        = aws_sns_topic.pager.arn
   source_type      = "db-instance"
-  source_ids       = [module.database.identifier]
+  source_ids       = [module.database.pg_id]
   event_categories = ["failure"]
   enabled          = true
-  depends_on       = [aws_sns_topic_policy.ops]
+  depends_on       = [aws_sns_topic_policy.pager]
 }

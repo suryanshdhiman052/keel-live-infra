@@ -1,13 +1,13 @@
 FROM python:3.12-alpine
 
-RUN addgroup -S app && adduser -S -G app -u 1000 app \
-  && mkdir -p /app /tmp \
-  && chown -R app:app /app /tmp
+RUN addgroup -S shop && adduser -S -G shop -u 1000 shop \
+  && mkdir -p /srv /tmp \
+  && chown -R shop:shop /srv /tmp
 
-WORKDIR /app
+WORKDIR /srv
 COPY main.py .
 
-USER app
-EXPOSE 8080
-ENV PORT=8080
+USER shop
+EXPOSE 8088
+ENV PORT=8088
 CMD ["python", "-u", "main.py"]

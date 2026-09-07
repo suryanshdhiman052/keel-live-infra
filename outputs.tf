@@ -2,26 +2,26 @@ output "vpc_id" {
   value = module.networking.vpc_id
 }
 
-output "ecr_repository_url" {
-  value = module.compute.ecr_repository_url
+output "registry" {
+  value = module.compute.registry
 }
 
-output "api_hostname" {
-  value = var.domain_name
+output "shop_url" {
+  value = var.fqdn
 }
 
-output "db_endpoint_parameter" {
-  value = module.compute.db_endpoint_parameter
+output "pg_host_param" {
+  value = module.compute.pg_host_param
 }
 
-output "cluster_name" {
-  value = module.compute.cluster_name
+output "cluster" {
+  value = module.compute.cluster
 }
 
-output "service_name" {
-  value = module.compute.service_name
+output "service" {
+  value = module.compute.service
 }
 
-output "sns_topic_arn" {
-  value = aws_sns_topic.ops.arn
+output "pager_topic" {
+  value = aws_sns_topic.pager.arn
 }

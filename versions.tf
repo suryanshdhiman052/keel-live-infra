@@ -8,7 +8,6 @@ terraform {
     }
   }
 
-  # Partial backend. Bucket/table come from bootstrap → backend.hcl.
   backend "s3" {}
 }
 
@@ -17,9 +16,9 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = var.project
-      Environment = var.environment
-      ManagedBy   = "terraform"
+      App   = var.project
+      Stage = var.stage
+      Owner = "shop-api"
     }
   }
 }

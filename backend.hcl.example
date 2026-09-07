@@ -1,5 +1,5 @@
-bucket         = "keel-tfstate-ACCOUNT"
-key            = "keel/live/terraform.tfstate"
+bucket         = "keel-shop-state-ACCOUNT"
+key            = "keel/shop/terraform.tfstate"
 region         = "us-east-1"
-dynamodb_table = "keel-tfstate-lock"
+dynamodb_table = "keel-shop-state-mutex"
 encrypt        = true

@@ -13,21 +13,21 @@ LIMIT = 19950
 MUST_CONTAIN = [
     'backend "s3"',
     "LockID",
-    'resource "aws_vpc"',
-    'resource "aws_subnet" "public"',
-    'resource "aws_subnet" "app"',
-    'resource "aws_subnet" "db"',
+    'resource "aws_vpc" "lan"',
+    'resource "aws_subnet" "ingress"',
+    'resource "aws_subnet" "svc"',
+    'resource "aws_subnet" "persist"',
     'resource "aws_internet_gateway"',
-    'resource "aws_route_table" "public"',
-    'resource "aws_route_table" "private"',
+    'resource "aws_route_table" "edge"',
+    'resource "aws_route_table" "isolated"',
     "aws_route_table_association",
     'data "aws_region" "current"',
-    'resource "aws_ecr_repository" "api"',
-    "alb_https",
-    "alb_to_ecs",
-    "ecs_from_alb",
-    "rds_from_ecs",
-    "vpce_from_ecs",
+    'resource "aws_ecr_repository" "shop"',
+    "edge_https_in",
+    "edge_forward",
+    "tasks_accept_edge",
+    "pg_accept_tasks",
+    "privatelink_accept_tasks",
     "1000:1000",
     "publicly_accessible",
     "aws_acm_certificate_validation",
@@ -44,8 +44,8 @@ MUST_CONTAIN = [
     "aws_cloudwatch_event_rule",
     "CannotPullContainerError",
     "aws_appautoscaling_target",
-    "objects/*",
-    'resource "aws_security_group" "vpce"',
+    "media/*",
+    'resource "aws_security_group" "privatelink"',
     "aws_vpc_endpoint",
 ]
 
@@ -270,32 +270,28 @@ def main() -> None:
     versions = drop_block(versions, "default_tags")
     variables = prep("variables.tf")
     variables = re.sub(
-        r'variable "desired_count" \{.*?\}',
-        'variable "desired_count" { type = number default = 0 }',
+        r'variable "replica_min" \{.*?\}',
+        'variable "replica_min" { type = number default = 0 }',
         variables,
         flags=re.S,
     )
-    variables = variables.replace(
-        "Runtime user is hardcoded to UID 1000. Do not pass root, 0, or an image USER name.",
-        "UID 1000 only.",
-    )
     main_tf = prep("main.tf")
     obs = prep("observability.tf")
-    obs = drop_typed(obs, [("aws_sns_topic_subscription", "ops_email")])
+    obs = drop_typed(obs, [("aws_sns_topic_subscription", "inbox")])
     boot = (
         'terraform {\nrequired_version = ">= 1.6.0"\nrequired_providers {\n'
         'aws = { source = "hashicorp/aws" version = "~> 5.70" }\n}\n}\n'
         'provider "aws" { region = var.aws_region }\n'
         'variable "aws_region" { type = string default = "us-east-1" }\n'
-        'variable "name_prefix" { type = string default = "keel-tfstate" }\n'
+        'variable "bucket_prefix" { type = string default = "keel-shop-state" }\n'
     )
     boot += prep("bootstrap/main.tf")
     boot = drop_typed(
         boot,
         [
-            ("aws_s3_bucket_server_side_encryption_configuration", "state"),
-            ("aws_s3_bucket_policy", "tls"),
-            ("aws_s3_bucket_public_access_block", "state"),
+            ("aws_s3_bucket_server_side_encryption_configuration", "remote"),
+            ("aws_s3_bucket_policy", "tls_only"),
+            ("aws_s3_bucket_public_access_block", "remote"),
         ],
     )
     net = prep("modules/networking/main.tf")
@@ -304,62 +300,26 @@ def main() -> None:
     net = drop_typed(
         net,
         [
-            ("aws_security_group_rule", "alb_http"),
-            ("aws_security_group_rule", "ecs_dns"),
+            ("aws_vpc_security_group_ingress_rule", "edge_http_in"),
+            ("aws_vpc_security_group_egress_rule", "tasks_resolver"),
             ("aws_prefix_list", "s3"),
-            ("aws_security_group_rule", "ecs_to_s3"),
+            ("aws_vpc_security_group_egress_rule", "tasks_s3_layers"),
         ],
     )
     db = prep("modules/database/main.tf")
     db = drop_kind(db, "variable")
     db = drop_kind(db, "output")
-    # keep parameter group (rds.force_ssl) in the paste
     comp = prep("modules/compute/main.tf")
     comp = drop_kind(comp, "variable")
     comp = drop_kind(comp, "output")
     comp = drop_typed(
         comp,
         [
-            ("aws_s3_bucket_server_side_encryption_configuration", "assets"),
-            ("aws_s3_bucket_policy", "tls"),
-            ("aws_s3_bucket_public_access_block", "assets"),
-            ("aws_route53_record", "api"),
+            ("aws_s3_bucket_server_side_encryption_configuration", "media"),
+            ("aws_s3_bucket_policy", "tls_only"),
+            ("aws_s3_bucket_public_access_block", "media"),
+            ("aws_route53_record", "shop"),
         ],
-    )
-    # Dense container local — same fields the task definition jsonencodes.
-    comp = re.sub(
-        r"locals \{.*?^\}",
-        """locals {
-image = var.container_image != "" ? var.container_image : "${aws_ecr_repository.api.repository_url}:pending"
-runtime_uid = "1000:1000"
-log_group = "/ecs/${var.name}"
-container = {
-name = "api"
-image = local.image
-user = local.runtime_uid
-portMappings = [{ containerPort = var.container_port protocol = "tcp" }]
-environment = [
-{ name = "PORT" value = tostring(var.container_port) },
-{ name = "DB_PORT" value = tostring(var.db_port) },
-{ name = "DB_NAME" value = var.db_name },
-{ name = "ASSETS_BUCKET" value = aws_s3_bucket.assets.bucket },
-{ name = "ASSETS_PREFIX" value = "objects" },
-]
-secrets = [
-{ name = "DB_HOST" valueFrom = aws_ssm_parameter.db_endpoint.arn },
-{ name = "DB_USERNAME" valueFrom = "${var.db_secret_arn}:username::" },
-{ name = "DB_PASSWORD" valueFrom = "${var.db_secret_arn}:password::" },
-]
-readonlyRootFilesystem = true
-mountPoints = [{ sourceVolume = "tmp" containerPath = "/tmp" readOnly = false }]
-linuxParameters = { capabilities = { drop = ["ALL"] } }
-logConfiguration = { logDriver = "awslogs" options = { awslogs-group = local.log_group awslogs-region = data.aws_region.current.name awslogs-stream-prefix = "api" } }
-}
-}
-""",
-        comp,
-        count=1,
-        flags=re.S | re.M,
     )
 
     sections = [

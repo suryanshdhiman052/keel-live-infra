@@ -3,7 +3,7 @@ variable "aws_region" {
   default = "us-east-1"
 }
 
-variable "name_prefix" {
+variable "bucket_prefix" {
   type    = string
-  default = "keel-tfstate"
+  default = "keel-shop-state"
 }
