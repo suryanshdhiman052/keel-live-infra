@@ -1,0 +1,5 @@
+domain_name    = "api.example.com"
+hosted_zone_id = "Z00000000000000000000"
+alert_email    = "ops@example.com"
+container_image = ""
+desired_count   = 0

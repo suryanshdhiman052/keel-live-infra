@@ -1,0 +1,5 @@
+bucket         = "keel-tfstate-ACCOUNT"
+key            = "keel/live/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "keel-tfstate-lock"
+encrypt        = true

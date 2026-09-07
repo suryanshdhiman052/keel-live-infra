@@ -1,0 +1,7 @@
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+terraform.tfvars
+backend.hcl
+_submit/
+__pycache__/
